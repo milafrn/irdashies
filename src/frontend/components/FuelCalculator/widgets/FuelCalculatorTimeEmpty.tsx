@@ -39,11 +39,11 @@ export const FuelCalculatorTimeEmpty: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '24px';
 
-  if (!fuelData) return null;
+  // REMOVED: if (!fuelData) return null;
 
   // Calculate time until empty
   // lapsWithFuel * avgLapTime
-  const secondsLeft = displayData.lapsWithFuel * (fuelData.avgLapTime || 0);
+  const secondsLeft = displayData.lapsWithFuel * (fuelData?.avgLapTime || 0);
 
   // Format to HH:MM:SS
   const formatTime = (secs: number) => {
@@ -55,7 +55,7 @@ export const FuelCalculatorTimeEmpty: React.FC<FuelCalculatorWidgetProps> = ({
   };
 
   // Fuel status border color
-  const status = fuelData.fuelStatus || 'safe';
+  const status = fuelData?.fuelStatus || 'safe';
   const statusColors = getFuelStatusColors(status);
   const borderColor = statusColors.border;
 

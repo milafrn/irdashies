@@ -25,10 +25,10 @@ export const FuelCalculatorConfidence: React.FC<FuelCalculatorWidgetProps> = ({
   customStyles,
   isCompact,
 }) => {
-  if (!fuelData) return null;
+  // REMOVED: if (!fuelData) return null;
 
-  const confidence = fuelData.confidence || 'low';
-  const lapsRange = fuelData.lapsRange || [0, 0];
+  const confidence = fuelData?.confidence || 'low';
+  const lapsRange = fuelData?.lapsRange || [0, 0];
   const fuelForLaps = lapsRange[1];
 
   // Custom style handling
@@ -56,7 +56,9 @@ export const FuelCalculatorConfidence: React.FC<FuelCalculatorWidgetProps> = ({
       >
         <div className="text-center" style={{ fontSize: labelFontSize }}>
           <span className="text-red-400">
-            {confidence === 'very-low' ? '⚠ Not enough data' : '⚠ Low confidence'}
+            {confidence === 'very-low'
+              ? '⚠ Not enough data'
+              : '⚠ Low confidence'}
           </span>
         </div>
         <div className="text-center mt-0.5" style={{ fontSize: valueFontSize }}>

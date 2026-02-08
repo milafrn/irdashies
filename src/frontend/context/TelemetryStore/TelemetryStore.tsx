@@ -7,12 +7,20 @@ import { arrayCompare, telemetryCompare } from './telemetryCompare';
 interface TelemetryState {
   telemetry: Telemetry | null;
   setTelemetry: (telemetry: Telemetry | null) => void;
+  updateTelemetry: (data: Partial<Telemetry>) => void; // Added for P2P
   resetTelemetry: () => void;
 }
 
 export const useTelemetryStore = create<TelemetryState>((set) => ({
   telemetry: null,
   setTelemetry: (telemetry: Telemetry | null) => set({ telemetry }),
+  updateTelemetry: (data: Partial<Telemetry>) =>
+    set((state) => {
+      // If we have no state, just set it
+      if (!state.telemetry) return { telemetry: data as Telemetry };
+      // Merge if partial
+      return { telemetry: { ...state.telemetry, ...data } as Telemetry };
+    }),
   resetTelemetry: () => set({ telemetry: null }),
 }));
 
@@ -32,11 +40,25 @@ export const useTelemetry = <T extends number[] | boolean[] = number[]>(
  */
 export const useTelemetryValue = <T extends number | boolean = number>(
   key: keyof Telemetry
-): T | undefined =>
-  useStore(
+): T | undefined => {
+  const value = useStore(
     useTelemetryStore,
     (state) => state.telemetry?.[key]?.value?.[0] as T
   );
+
+  // LOGGING: Track value updates
+  if (
+    value !== undefined &&
+    (key === 'FuelLevel' || key === 'Lap' || key === 'IsOnTrack')
+  ) {
+    if (DEBUG_LOGGING_LOCAL) console.log(`[useTelemetryValue] ${key}:`, value);
+  }
+
+  return value;
+};
+
+// Add a local flag to avoid flood if not desired, but let's enable it
+const DEBUG_LOGGING_LOCAL = false;
 
 /**
  * Returns the first telemetry value for a given key.

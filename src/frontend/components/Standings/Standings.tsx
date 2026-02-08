@@ -18,6 +18,7 @@ import {
   useWeekendInfoNumCarClasses,
   useWeekendInfoTeamRacing,
   useSessionVisibility,
+  useTeamSharing,
 } from '@irdashies/context';
 import { useIsSingleMake } from './hooks/useIsSingleMake';
 
@@ -49,13 +50,22 @@ export const Standings = () => {
   const isTeamRacing = useWeekendInfoTeamRacing();
 
   // Determine table border spacing based on compact mode
-  const tableBorderSpacing = generalSettings?.compactMode ? 'border-spacing-y-0' : 'border-spacing-y-0.5';
+  const tableBorderSpacing = generalSettings?.compactMode
+    ? 'border-spacing-y-0'
+    : 'border-spacing-y-0.5';
 
-  if (!isSessionVisible) return <></>;
+  // Check if we are a guest
+  const isGuest = useTeamSharing().mode === 'guest';
 
-  // Show only when on track setting
-  if (settings?.showOnlyWhenOnTrack && !isDriving) {
-    return <></>;
+  // Standings Visibility Logic
+  // If not guest, enforce standard visibility rules
+  if (!isGuest) {
+    if (!isSessionVisible) return <></>;
+
+    // Show only when on track setting
+    if (settings?.showOnlyWhenOnTrack && !isDriving) {
+      return <></>;
+    }
   }
 
   return (
@@ -69,7 +79,9 @@ export const Standings = () => {
       {(settings?.headerBar?.enabled ?? true) && (
         <SessionBar position="header" variant="standings" />
       )}
-      <table className={`w-full table-auto text-sm border-separate ${tableBorderSpacing}`}>
+      <table
+        className={`w-full table-auto text-sm border-separate ${tableBorderSpacing}`}
+      >
         <tbody>
           {standings.map(([classId, classStandings], index) =>
             classStandings.length > 0 ? (
@@ -167,11 +179,12 @@ export const Standings = () => {
                     hideCarManufacturer={hideCarManufacturer}
                   />
                 ))}
-                {index < standings.length - 1 && !generalSettings?.compactMode && (
-                  <tr>
-                    <td colSpan={12} className="h-2"></td>
-                  </tr>
-                )}
+                {index < standings.length - 1 &&
+                  !generalSettings?.compactMode && (
+                    <tr>
+                      <td colSpan={12} className="h-2"></td>
+                    </tr>
+                  )}
               </Fragment>
             ) : null
           )}

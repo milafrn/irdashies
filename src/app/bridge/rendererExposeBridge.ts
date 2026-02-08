@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import type {
   Session,
   Telemetry,
@@ -8,6 +8,9 @@ import type {
   SaveDashboardOptions,
   FuelCalculatorBridge,
   FuelLapData,
+  TeamSharingBridge,
+  TeamSharingMode,
+  TeamSharingMessage,
 } from '@irdashies/types';
 
 export function exposeBridge() {
@@ -113,4 +116,35 @@ export function exposeBridge() {
       return ipcRenderer.invoke('fuel:logData', data);
     },
   } as FuelCalculatorBridge);
+
+  contextBridge.exposeInMainWorld('teamSharingBridge', {
+    onStatusChange: (
+      callback: (mode: TeamSharingMode, peerId?: string) => void
+    ) => {
+      const listener = (
+        _: IpcRendererEvent,
+        data: { mode: TeamSharingMode; peerId?: string }
+      ) => {
+        callback(data.mode, data.peerId);
+      };
+      ipcRenderer.on('teamsharing:status-changed', listener);
+      return () =>
+        ipcRenderer.removeListener('teamsharing:status-changed', listener);
+    },
+    onData: (callback: (message: TeamSharingMessage) => void) => {
+      const listener = (_: IpcRendererEvent, message: TeamSharingMessage) => {
+        callback(message);
+      };
+      ipcRenderer.on('teamsharing:data-received', listener);
+      return () =>
+        ipcRenderer.removeListener('teamsharing:data-received', listener);
+    },
+    updateStatus: (mode: TeamSharingMode, peerId?: string) => {
+      ipcRenderer.send('teamsharing:update-status', mode, peerId);
+    },
+    broadcastData: (message: TeamSharingMessage) => {
+      ipcRenderer.send('teamsharing:broadcast-data', message);
+    },
+    getStatus: () => ipcRenderer.invoke('teamsharing:get-status'),
+  } as TeamSharingBridge);
 }

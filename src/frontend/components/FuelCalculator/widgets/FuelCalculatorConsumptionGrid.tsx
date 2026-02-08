@@ -27,7 +27,6 @@ interface FuelCalculatorWidgetProps {
 export const FuelCalculatorConsumptionGrid: React.FC<
   FuelCalculatorWidgetProps
 > = ({
-  fuelData,
   displayData,
   settings,
   widgetId,
@@ -57,8 +56,6 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   const widgetStyle =
     customStyles || (widgetId && settings?.widgetStyles?.[widgetId]) || {};
 
-
-
   const labelFontSize = widgetStyle.labelFontSize
     ? `${widgetStyle.labelFontSize}px`
     : widgetStyle.fontSize
@@ -73,8 +70,8 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   // Container style for other props like padding/margins if needed, but font size is handled per element now
   const containerStyle: React.CSSProperties = {
     ...(customStyles ||
-       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-       ((widgetId && settings?.widgetStyles?.[widgetId]) as any) ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ((widgetId && settings?.widgetStyles?.[widgetId]) as any) ||
       {}),
   };
 
@@ -89,14 +86,15 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   const currentLap = displayData?.currentLap || 0;
   const fuelLevelToUse = displayData?.fuelLevel ?? 0;
   // Check for White (0x0002) or Checkered (0x0004) flag
-  const isFinalLapOrFinished = sessionFlags && ((sessionFlags & 0x0002) || (sessionFlags & 0x0004));
+  const isFinalLapOrFinished =
+    sessionFlags && (sessionFlags & 0x0002 || sessionFlags & 0x0004);
 
   // If final lap/finished, we clamp the total race laps to the current lap (so it shows X / X)
   let effectiveTotalLaps = Math.max(totalRaceLaps, currentLap);
   if (isFinalLapOrFinished) {
-      effectiveTotalLaps = currentLap;
+    effectiveTotalLaps = currentLap;
   }
-  
+
   // Grid Data (Frozen Values from Parent)
   const avg = displayData?.avgLaps || displayData?.avg10Laps || 0;
   const max = displayData?.maxLapUsage || 0;
@@ -104,15 +102,15 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   const min = displayData?.minLapUsage || 0;
   const qual = displayData?.maxQualify || 0;
   // Current usage can be live if wanted, but user asked to remove "Real Time Update"
-  // so we use the frozen LAST lap usage or similar? 
+  // so we use the frozen LAST lap usage or similar?
   // actually "CURR" usually means "Current Lap Projection".
   // The user said "remove real time update from consumption grid".
   // If we freeze "CURR", it will show 0 or the start of lap value?
   // Usually "CURR" in the grid implies the Projected usage for the *current* lap.
   // If we freeze it, it won't move.
-  // Let's use the 'predictiveUsage' passed prop which might be throttled or frozen, 
+  // Let's use the 'predictiveUsage' passed prop which might be throttled or frozen,
   // OR just use displayData?.projectedLapUsage if we want it frozen at lap start (which would be 0).
-  // However, "CURR" row usually implies "What am I doing NOW". 
+  // However, "CURR" row usually implies "What am I doing NOW".
   // If the user wants NO real time updates, then "CURR" might be misleading or should just be static "Last Lap"?
   // Re-reading request: "Quero remover a atualização em tempo real do consumption grid".
   // This likely means the "Refuel" / "At Finish" numbers shouldn't dance around.
@@ -126,9 +124,22 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   const currentUsage = predictiveUsage ?? displayData?.projectedLapUsage ?? 0;
 
   // Calculate derivates (Laps, Refuel, Finish)
-  const calcCol = (usage: number, contextTotalLaps: number, contextLapsRemaining: number, contextFuelLevel: number) => {
-    if (usage <= 0) return { laps: NaN, refuel: 0, totalReq: 0, isDeficit: false, isValid: false, hideRefuel: true };
-    
+  const calcCol = (
+    usage: number,
+    contextTotalLaps: number,
+    contextLapsRemaining: number,
+    contextFuelLevel: number
+  ) => {
+    if (usage <= 0)
+      return {
+        laps: NaN,
+        refuel: 0,
+        totalReq: 0,
+        isDeficit: false,
+        isValid: false,
+        hideRefuel: true,
+      };
+
     // Laps calculation
     const laps = contextFuelLevel / usage;
 
@@ -141,7 +152,7 @@ export const FuelCalculatorConsumptionGrid: React.FC<
     // FuelNeeded = LapsRemaining * Usage
     const fuelNeeded = contextLapsRemaining * usage;
     const balance = contextFuelLevel - fuelNeeded;
-    
+
     // Logic for Refuel Column:
     // If Balance < 0 (Deficit): Show POSITIVE amount to ADD.
     // If Balance >= 0 (Surplus): Show POSITIVE amount EXTRA.
@@ -156,7 +167,7 @@ export const FuelCalculatorConsumptionGrid: React.FC<
         totalReq: 0,
         isDeficit: false,
         isValid: true,
-        hideRefuel: true
+        hideRefuel: true,
       };
     }
 
@@ -166,7 +177,7 @@ export const FuelCalculatorConsumptionGrid: React.FC<
       totalReq: totalReq, // number
       isDeficit: isDeficit, // boolean
       isValid: true,
-      hideRefuel: false
+      hideRefuel: false,
     };
   };
 
@@ -182,23 +193,53 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   const liveLapsRemaining = liveFuelData?.lapsRemaining ?? frozenLapsRemaining;
   const dataLiveFuelLevel = liveFuelLevel || frozenFuelLevel;
 
-  // Header Logic: Usually headers should be stable too if the grid is stable, 
+  // Header Logic: Usually headers should be stable too if the grid is stable,
   // but "Total Laps" changing is a major event.
-  // The user requested removing update in middle of lap. 
+  // The user requested removing update in middle of lap.
   // Let's keep the Header reflecting the FROZEN state effectively to match the grid rows?
   // Or should it be live? If I change race length, I likely want to see it up top.
   // But if the rows below (AVG/MAX) are calculating based on OLD length, then header showing NEW length is confusing.
   // Verdict: Header should match the rows context. Since most rows are frozen, Header uses frozenTotalLaps.
 
-  const avgData = calcCol(avg, frozenTotalLaps, frozenLapsRemaining, frozenFuelLevel);
-  const maxData = calcCol(max, frozenTotalLaps, frozenLapsRemaining, frozenFuelLevel);
-  const lastData = calcCol(last, frozenTotalLaps, frozenLapsRemaining, frozenFuelLevel);
-  const minData = calcCol(min, frozenTotalLaps, frozenLapsRemaining, frozenFuelLevel);
-  const qualData = calcCol(qual, frozenTotalLaps, frozenLapsRemaining, frozenFuelLevel);
-  
+  const avgData = calcCol(
+    avg,
+    frozenTotalLaps,
+    frozenLapsRemaining,
+    frozenFuelLevel
+  );
+  const maxData = calcCol(
+    max,
+    frozenTotalLaps,
+    frozenLapsRemaining,
+    frozenFuelLevel
+  );
+  const lastData = calcCol(
+    last,
+    frozenTotalLaps,
+    frozenLapsRemaining,
+    frozenFuelLevel
+  );
+  const minData = calcCol(
+    min,
+    frozenTotalLaps,
+    frozenLapsRemaining,
+    frozenFuelLevel
+  );
+  const qualData = calcCol(
+    qual,
+    frozenTotalLaps,
+    frozenLapsRemaining,
+    frozenFuelLevel
+  );
+
   // CURR uses LIVE context
-  const currentData = calcCol(currentUsage, liveTotalLaps, liveLapsRemaining, dataLiveFuelLevel);
-  if (!fuelData) return null;
+  const currentData = calcCol(
+    currentUsage,
+    liveTotalLaps,
+    liveLapsRemaining,
+    dataLiveFuelLevel
+  );
+  // REMOVED: if (!fuelData) return null;
 
   // Master visibility toggle
   if (settings && settings.showConsumption === false) return null;
@@ -213,15 +254,13 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   // Calculate derivates (Laps, Refuel, Finish) for each column
   // This duplicates some logic but ensures consistent display as per mockup
 
-
   // Helper for color coding Finish
 
-
   // Helper for formatting
-  const fmt = (num: number, isValid: boolean) => isValid ? num.toFixed(2) : '--';
+  const fmt = (num: number, isValid: boolean) =>
+    isValid ? num.toFixed(2) : '--';
 
   // Helper for Refuel color
-
 
   return (
     <div
@@ -236,7 +275,9 @@ export const FuelCalculatorConsumptionGrid: React.FC<
         <div style={{ fontSize: '0.8em', opacity: 0.7 }}>IN RACE</div>
         <div style={{ color: '#fff' }}>
           {currentLap}
-          {isRace && effectiveTotalLaps > 0 ? ` / ${effectiveTotalLaps.toFixed(2)}` : ''}
+          {isRace && effectiveTotalLaps > 0
+            ? ` / ${effectiveTotalLaps.toFixed(2)}`
+            : ''}
         </div>
       </div>
       <div
@@ -302,14 +343,15 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     className={`text-white text-center ${rowPadding} opacity-90`}
                     style={{ fontSize: valueFontSize }}
                   >
-                     {fmt(currentData.laps, isFinite(currentData.laps))}
+                    {fmt(currentData.laps, isFinite(currentData.laps))}
                   </div>
 
                   <div
                     className={`${currentData.isDeficit ? 'text-red-500 bg-red-500/10' : 'text-green-400 bg-green-500/10'} text-center ${rowPadding} font-bold rounded mx-0.5`}
                     style={{ fontSize: valueFontSize }}
                   >
-                    {!currentData.isDeficit ? '+' : ''}{fmt(currentData.refuel, true)}
+                    {!currentData.isDeficit ? '+' : ''}
+                    {fmt(currentData.refuel, true)}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding} opacity-90`}
@@ -347,13 +389,14 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     className={`${avgData.isDeficit ? 'text-red-500 bg-red-500/10' : 'text-green-400 bg-green-500/10'} text-center ${rowPadding} font-bold rounded mx-0.5`}
                     style={{ fontSize: valueFontSize }}
                   >
-                    {!avgData.isDeficit ? '+' : ''}{fmt(avgData.refuel, true)}
+                    {!avgData.isDeficit ? '+' : ''}
+                    {fmt(avgData.refuel, true)}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding}`}
                     style={{ fontSize: valueFontSize }}
                   >
-                     {fmt(avgData.totalReq, true)}
+                    {fmt(avgData.totalReq, true)}
                   </div>
                 </React.Fragment>
               );
@@ -385,7 +428,8 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     className={`${maxData.isDeficit ? 'text-red-500 bg-red-500/10' : 'text-green-400 bg-green-500/10'} text-center ${rowPadding} font-bold rounded mx-0.5`}
                     style={{ fontSize: valueFontSize }}
                   >
-                    {!maxData.isDeficit ? '+' : ''}{fmt(maxData.refuel, true)}
+                    {!maxData.isDeficit ? '+' : ''}
+                    {fmt(maxData.refuel, true)}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding}`}
@@ -422,7 +466,8 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     className={`${lastData.isDeficit ? 'text-red-500 bg-red-500/10' : 'text-green-400 bg-green-500/10'} text-center ${rowPadding} font-bold rounded mx-0.5`}
                     style={{ fontSize: valueFontSize }}
                   >
-                    {!lastData.isDeficit ? '+' : ''}{fmt(lastData.refuel, true)}
+                    {!lastData.isDeficit ? '+' : ''}
+                    {fmt(lastData.refuel, true)}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding}`}
@@ -452,20 +497,21 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     className={`text-white text-center ${rowPadding}`}
                     style={{ fontSize: valueFontSize }}
                   >
-                   {fmt(minData.laps, isFinite(minData.laps))}
+                    {fmt(minData.laps, isFinite(minData.laps))}
                   </div>
 
                   <div
                     className={`${minData.isDeficit ? 'text-red-500 bg-red-500/10' : 'text-green-400 bg-green-500/10'} text-center ${rowPadding} font-bold rounded mx-0.5`}
                     style={{ fontSize: valueFontSize }}
                   >
-                    {!minData.isDeficit ? '+' : ''}{fmt(minData.refuel, true)}
+                    {!minData.isDeficit ? '+' : ''}
+                    {fmt(minData.refuel, true)}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding}`}
                     style={{ fontSize: valueFontSize }}
                   >
-                     {fmt(minData.totalReq, true)}
+                    {fmt(minData.totalReq, true)}
                   </div>
                 </React.Fragment>
               );
@@ -499,10 +545,13 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                     style={{ fontSize: valueFontSize }}
                   >
                     {isRace && qual > 0 ? (
-                        <>
-                        {!qualData.isDeficit ? '+' : ''}{fmt(qualData.refuel, true)}
-                        </>
-                    ) : '--'}
+                      <>
+                        {!qualData.isDeficit ? '+' : ''}
+                        {fmt(qualData.refuel, true)}
+                      </>
+                    ) : (
+                      '--'
+                    )}
                   </div>
                   <div
                     className={`text-white text-center ${rowPadding}`}

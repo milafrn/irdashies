@@ -69,24 +69,25 @@ export const FuelCalculatorHeader: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '14px';
 
-  if (!fuelData) return null;
+  // REMOVED: if (!fuelData) return null;
 
-  const stopsRemaining = fuelData.stopsRemaining ?? 0;
-  const pitWindowOpen = fuelData.pitWindowOpen;
+  const stopsRemaining = fuelData?.stopsRemaining ?? 0;
+  const pitWindowOpen = fuelData?.pitWindowOpen;
 
   // Confidence logic (mapping from existing data)
-  const confidence = fuelData.confidence || 'low';
+  const confidence = fuelData?.confidence || 'low';
   const confConfig = getConfidenceConfig(confidence);
 
   // Format laps remaining for confidence pill
-  let lapsText = `${Math.ceil(fuelData.lapsRemaining)} LAPS`;
+  const lapsRemainingVal = fuelData?.lapsRemaining ?? 0;
+  let lapsText = `${Math.ceil(lapsRemainingVal)} LAPS`;
   if (confidence === 'medium')
-    lapsText = `~${Math.ceil(fuelData.lapsRemaining)} LAPS`;
+    lapsText = `~${Math.ceil(lapsRemainingVal)} LAPS`;
   if (confidence === 'low' || confidence === 'very-low')
-    lapsText = `${Math.floor(fuelData.lapsRemaining)}-${Math.ceil(fuelData.lapsRemaining + 2)} LAPS`;
+    lapsText = `${Math.floor(lapsRemainingVal)}-${Math.ceil(lapsRemainingVal + 2)} LAPS`;
 
   // If no data (avgLaps is 0), show --
-  if ((fuelData.avgLaps || 0) <= 0) {
+  if ((fuelData?.avgLaps || 0) <= 0) {
     lapsText = '--';
   }
 

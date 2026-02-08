@@ -3,6 +3,7 @@ import {
   useSessionVisibility,
   useTelemetryValue,
   useDashboard,
+  useTeamSharing,
 } from '@irdashies/context';
 import { useFuelCalculation } from './useFuelCalculation';
 import {
@@ -48,8 +49,36 @@ const EMPTY_DATA: FuelCalculation = {
   fuelStatus: 'safe',
 };
 
+const DEMO_DATA: FuelCalculation = {
+  targetConsumption: 3.5,
+  fuelToFinish: 45.2,
+  fuelToAdd: 12.5,
+  lapsRemaining: 15,
+  fuelLevel: 25.0,
+  lastLapUsage: 3.6,
+  projectedLapUsage: 3.5,
+  stopsRemaining: 1,
+  fuelStatus: 'caution',
+  confidence: 'high',
+  maxQualify: 0,
+  currentLap: 10,
+  totalLaps: 25,
+  avgLaps: 3.5,
+  avg10Laps: 3.5,
+  avgAllGreenLaps: 3.5,
+  lapsWithFuel: 22,
+  minLapUsage: 3.3,
+  maxLapUsage: 3.7,
+  pitWindowOpen: 12,
+  pitWindowClose: 24,
+  canFinish: false,
+  fuelAtFinish: -10,
+  avgLapTime: 90,
+};
+
 // --- Data & Calculation ---
 export const FuelCalculator = (props: FuelCalculatorProps) => {
+  const { mode } = useTeamSharing();
   // Replay Logic - REMOVED
 
   // Use specific settings from props or defaults (though this component usually receives merged settings or direct usage)
@@ -65,7 +94,7 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
 
   const settings = props as FuelCalculatorSettings;
 
-  const { fuelUnits, safetyMargin } = settings;
+  const { fuelUnits } = settings;
 
   const isSessionVisible = useSessionVisibility(settings.sessionVisibility);
 
@@ -143,7 +172,6 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   }, [settings.layoutTree]);
 
   const isOnTrack = useTelemetryValue('IsOnTrack');
-  // const sessionId = useTelemetryValue('SessionUniqueID');
 
   // We need to force a re-render periodically or subscribe to data?
   // `useTelemetryValues` subscribes to the store.
@@ -151,14 +179,19 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   // So components should update automatically.
 
   // HACK: To ensure updates even if only low-freq data changes
-  // we might want to subscribe to a clock or sessionTime?
-  const sessionTime = useTelemetryValue('SessionTime');
 
-  // Also subscribe to specific fuel values to pass to sub-components?
-  // `useFuelCalculation` returns the calculation object.
-  const fuelData = useFuelCalculation(safetyMargin, settings);
+  // useFuelCalculation returns the calculation object.
+  const baseCalculation = useFuelCalculation({
+    ...settings,
+    ...props,
+    mode,
+  });
 
-  // We should also consume the "Live" data from the store for direct display if needed
+  // Demo Mode Override
+  const fuelData = editMode
+    ? (DEMO_DATA as FuelCalculation)
+    : baseCalculation || EMPTY_DATA;
+
   // BUT `useFuelCalculation` already provides the computed state.
 
   // For the GRID, we want to show PREDICTIVE vs ACTUAL vs REQUIRED
@@ -168,7 +201,7 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   // Telemetry: FuelLevel / FuelUsePerHour? No iRacing gives FuelLevelPct.
   // We rely on our calculation.
 
-  const currentFuelLevel = useTelemetryValue('FuelLevel');
+  // const currentFuelLevel = useTelemetryValue('FuelLevel');
 
   // Pit Window
   // If we have `fuelData.pitWindowOpen` (lap number), we can show it.
@@ -233,8 +266,6 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   // --- Snapshot on Pit Entry ---
   // To allow the driver to see "Fuel at Pit Entry" vs "Fuel Now".
   // This is useful for "Fuel Added".
-  const sessionState = useTelemetryValue('SessionState');
-  const sessionFlags = useTelemetryValue('SessionFlags');
 
   const [frozenFuelData, setFrozenFuelData] = useState(fuelData);
 
@@ -267,12 +298,14 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   useEffect(() => {
     if (fuelData) {
       setFrozenFuelData((prev) => {
-        // Update snapshot if:
-        // 1. We don't have a previous snapshot
-        // 2. The current lap has changed
-        // 3. The last finished lap count has changed (crucial for catching the update after crossing the line)
+        // GUEST FIX: Update if the data changed at all (especially fuel level)
+        // or if we don't have a snapshot yet.
+        const fuelChanged =
+          prev && Math.abs(prev.fuelLevel - fuelData.fuelLevel) > 0.05;
+
         if (
           !prev ||
+          (mode === 'guest' && fuelChanged) ||
           prev.currentLap !== fuelData.currentLap ||
           prev.lastFinishedLap !== fuelData.lastFinishedLap
         ) {
@@ -281,7 +314,7 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
         return prev;
       });
     }
-  }, [fuelData]);
+  }, [fuelData, mode]);
 
   // Force update every second for time-based items (like clock) if needed?
   // Not needed if we use `sessionTime`.
@@ -335,45 +368,34 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   // Render Loop
   // We use `requestAnimationFrame` for smooth updates if we were doing canvas.
   // For DOM, React updates are sufficient.
+  const [, setTick] = useState(0);
 
   // HACK: Sometimes `fuelData` is stale if no telemetry update.
-  const [, setTick] = useState(0);
+  // Consolidate UI periodic refresh (10Hz) to handle blinking and smooth transitions
+  // only when on track or in session.
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
+    if (!isOnTrack && !editMode) return;
+
+    const intervalId = setInterval(() => {
       setTick((t) => t + 1);
-    }, 1000); // 1Hz fallback refresh
-    return () => clearTimeout(timeoutId);
-  });
+    }, 100);
 
-  // Also sync with `SessionTime` for faster updates
-  useEffect(() => {
-    // This effect runs whenever sessionTime changes (approx 60Hz or 20Hz depending on app setting)
-    // We can trigger a re-render if necessary, but changing state `tick` above does it slowly.
-    // `useTelemetryValue` hooks trigger renders on change anyway.
-  }, [sessionTime]);
-
-  // HACK: Re-implement the blinking/updates properly
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    const scheduleNextUpdate = () => {
-      timeoutId = setTimeout(() => {
-        setTick((t) => t + 1);
-        scheduleNextUpdate();
-      }, 100);
-    };
-
-    // Start the cycle
-    scheduleNextUpdate();
-
-    return () => clearTimeout(timeoutId);
-  }, [sessionState, sessionFlags]);
+    return () => clearInterval(intervalId);
+  }, [isOnTrack, editMode]);
 
   // Safety fallback
   if (!hasSettings) return <div className="text-red-500">Missing Settings</div>;
 
-  if (!editMode && settings?.showOnlyWhenOnTrack && !isOnTrack) return null;
-  if (!editMode && !isSessionVisible) return <></>;
+  if (mode === 'guest') {
+    // Force visibility for guests
+  } else if (!editMode) {
+    if (settings?.showOnlyWhenOnTrack && !isOnTrack) {
+      return null;
+    }
+    if (!isSessionVisible) {
+      return <></>;
+    }
+  }
 
   const renderWidget = (widgetId: string) => {
     const widgetStyles = derivedFontStyles[widgetId] || derivedFontStyles; // Proxy or direct
@@ -398,7 +420,6 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
             {...widgetProps}
             fuelData={frozenFuelData}
             liveFuelData={fuelData}
-            liveFuelLevel={currentFuelLevel}
             predictiveUsage={predictiveUsage}
             displayData={frozenDisplayData}
           />

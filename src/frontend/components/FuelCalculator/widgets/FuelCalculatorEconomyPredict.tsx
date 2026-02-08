@@ -18,14 +18,7 @@ interface FuelCalculatorWidgetProps {
 
 export const FuelCalculatorEconomyPredict: React.FC<
   FuelCalculatorWidgetProps
-> = ({
-  fuelData,
-  displayData,
-  settings,
-  widgetId,
-  customStyles,
-  isCompact,
-}) => {
+> = ({ displayData, settings, widgetId, customStyles, isCompact }) => {
   // Custom style handling for separate label/value sizes
   const widgetStyle =
     customStyles || (widgetId && settings?.widgetStyles?.[widgetId]) || {};
@@ -47,7 +40,8 @@ export const FuelCalculatorEconomyPredict: React.FC<
 
   // console.log('[EconomyPredict] Render', { mode, currentLap: fuelData?.currentLap, bufferLen: bufferedScenarios.length, showLen: scenariosToShow.length });
 
-  if (!fuelData || !scenariosToShow || scenariosToShow.length === 0) {
+  // REMOVED: !fuelData check
+  if (!scenariosToShow || scenariosToShow.length === 0) {
     return (
       <div
         className={`flex items-center justify-center w-full rounded bg-slate-900/40 text-slate-500 italic`}

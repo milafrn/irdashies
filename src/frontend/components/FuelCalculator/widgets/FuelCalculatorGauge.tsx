@@ -79,16 +79,16 @@ export const FuelCalculatorGauge: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '18px';
 
-  if (!fuelData) return null;
+  // REMOVED: if (!fuelData) return null;
 
   const currentFuel = displayData.fuelLevel;
-  const tankCapacity = fuelData.fuelTankCapacity ?? 60;
+  const tankCapacity = fuelData?.fuelTankCapacity ?? 60;
   const fuelPct = Math.min(
     100,
     Math.max(0, (currentFuel / tankCapacity) * 100)
   );
 
-  const status = fuelData.fuelStatus || 'safe';
+  const status = fuelData?.fuelStatus || 'safe';
   const statusColors = getFuelStatusColors(status);
   const gradient = statusColors.bar;
 

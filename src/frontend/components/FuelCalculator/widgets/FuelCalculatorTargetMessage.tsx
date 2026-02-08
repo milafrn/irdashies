@@ -32,11 +32,11 @@ export const FuelCalculatorTargetMessage: React.FC<
   const isTesting =
     sessionType === 'Offline Testing' || sessionType === 'Practice';
 
-  if (!settings?.enableTargetPitLap || !settings.targetPitLap || !fuelData)
-    return null;
+  if (!settings?.enableTargetPitLap || !settings.targetPitLap) return null;
+  // REMOVED: !fuelData check
 
   const targetLap = settings.targetPitLap;
-  const lapsLeftAfterPit = Math.max(0, fuelData.totalLaps - targetLap);
+  const lapsLeftAfterPit = Math.max(0, (fuelData?.totalLaps ?? 0) - targetLap);
   const safetyMargin = settings?.safetyMargin ?? 0.05;
   // Select consumption based on basis setting
   const basis = settings?.targetPitLapBasis || 'avg';

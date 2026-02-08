@@ -1,4 +1,12 @@
-import { nativeImage, Tray, Menu, app, globalShortcut, desktopCapturer } from 'electron';
+import {
+  nativeImage,
+  Tray,
+  Menu,
+  app,
+  globalShortcut,
+  desktopCapturer,
+  MenuItemConstructorOptions,
+} from 'electron';
 import { TelemetrySink } from './bridge/iracingSdk/telemetrySink';
 import { OverlayManager } from './overlayManager';
 import { writeFile } from 'node:fs/promises';
@@ -15,10 +23,10 @@ declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 const isDev = !!MAIN_WINDOW_VITE_DEV_SERVER_URL;
 
 function getIconPath(): string {
-  const basePath = isDev 
+  const basePath = isDev
     ? path.join(__dirname, '../../docs/assets/icons')
     : path.join(process.resourcesPath, 'icons');
-  
+
   return path.join(basePath, 'logo-tray.png');
 }
 
@@ -37,7 +45,7 @@ class Taskbar {
   private createTray(): Tray {
     const iconPath = getIconPath();
     const icon = nativeImage.createFromPath(iconPath);
-    
+
     const tray = new Tray(icon);
     tray.setToolTip('irDashies');
     return tray;
@@ -125,27 +133,38 @@ class Taskbar {
   private async saveTelemetry(): Promise<void> {
     try {
       // First, import and call dumpTelemetry to get the directory path
-      const { dumpCurrentTelemetry } = await import('./bridge/iracingSdk/dumpTelemetry');
+      const { dumpCurrentTelemetry } =
+        await import('./bridge/iracingSdk/dumpTelemetry');
       const telemetryResult = await dumpCurrentTelemetry();
-      
+
       // Check if dirPath exists and is not null
-      const dirPath = telemetryResult && 'dirPath' in telemetryResult ? telemetryResult.dirPath : null;
+      const dirPath =
+        telemetryResult && 'dirPath' in telemetryResult
+          ? telemetryResult.dirPath
+          : null;
       if (dirPath) {
         // Capture all screens
         const sources = await desktopCapturer.getSources({
           types: ['screen'],
-          thumbnailSize: { width: 1920, height: 1080 } // Use a standard resolution
+          thumbnailSize: { width: 1920, height: 1080 }, // Use a standard resolution
         });
-        
+
         // Save each screen as a separate file
-        await Promise.all(sources.map(async (source, index) => {
-          if (source.thumbnail) {
-            const screenshotPath = path.join(dirPath, `screenshot_${index + 1}.png`);
-            const pngData = source.thumbnail.toPNG();
-            await writeFile(screenshotPath, pngData);
-            console.log(`Screenshot ${index + 1} saved to: ${screenshotPath}`);
-          }
-        }));
+        await Promise.all(
+          sources.map(async (source, index) => {
+            if (source.thumbnail) {
+              const screenshotPath = path.join(
+                dirPath,
+                `screenshot_${index + 1}.png`
+              );
+              const pngData = source.thumbnail.toPNG();
+              await writeFile(screenshotPath, pngData);
+              console.log(
+                `Screenshot ${index + 1} saved to: ${screenshotPath}`
+              );
+            }
+          })
+        );
       }
     } catch (error) {
       console.error('Error capturing screenshots:', error);
@@ -167,4 +186,105 @@ export const setupTaskbar = (
   overlayManager: OverlayManager
 ) => {
   new Taskbar(telemetrySink, overlayManager);
+};
+
+export const setupApplicationMenu = () => {
+  const isMac = process.platform === 'darwin';
+
+  const template: MenuItemConstructorOptions[] = [
+    // { role: 'appMenu' }
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
+    // { role: 'fileMenu' }
+    {
+      label: 'File',
+      submenu: [isMac ? { role: 'close' } : { role: 'quit' }],
+    },
+    // { role: 'editMenu' }
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(isMac
+          ? [
+              { role: 'pasteAndMatchStyle' },
+              { role: 'delete' },
+              { role: 'selectAll' },
+              { type: 'separator' },
+              {
+                label: 'Speech',
+                submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }],
+              },
+            ]
+          : [{ role: 'delete' }, { type: 'separator' }, { role: 'selectAll' }]),
+      ],
+    },
+    // { role: 'viewMenu' }
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    // { role: 'windowMenu' }
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'zoom' },
+        ...(isMac
+          ? [
+              { type: 'separator' },
+              { role: 'front' },
+              { type: 'separator' },
+              { role: 'window' },
+            ]
+          : [{ role: 'close' }]),
+      ],
+    },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Learn More',
+          click: async () => {
+            const { shell } = await import('electron');
+            await shell.openExternal('https://electronjs.org');
+          },
+        },
+      ],
+    },
+  ] as unknown as MenuItemConstructorOptions[];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 };
