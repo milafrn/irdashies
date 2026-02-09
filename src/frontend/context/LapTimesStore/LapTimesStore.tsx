@@ -12,7 +12,11 @@ interface LapTimesState {
   lapTimes: number[];
   sessionNum: number | null;
   playerCarIdx: number | null;
-  updateLapTimes: (carIdxLastLapTime: number[], sessionNum: number | null, playerCarIdx: number | null) => void;
+  updateLapTimes: (
+    carIdxLastLapTime: number[],
+    sessionNum: number | null,
+    playerCarIdx: number | null
+  ) => void;
   reset: () => void;
 }
 
@@ -23,10 +27,10 @@ const OUTLIER_THRESHOLD = 1.0; // Outlier detection threshold
 function median(numbers: number[]): number {
   if (numbers.length === 0) return 0;
   if (numbers.length === 1) return numbers[0];
-  
+
   const sorted = [...numbers].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  
+
   if (sorted.length % 2 === 0) {
     // For even number of values, return average of two middle values
     return (sorted[middle - 1] + sorted[middle]) / 2;
@@ -39,23 +43,24 @@ function median(numbers: number[]): number {
 // Helper function to calculate standard deviation
 function standardDeviation(numbers: number[]): number {
   const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
-  const squareDiffs = numbers.map(value => {
+  const squareDiffs = numbers.map((value) => {
     const diff = value - mean;
     return diff * diff;
   });
-  const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
+  const avgSquareDiff =
+    squareDiffs.reduce((a, b) => a + b, 0) / squareDiffs.length;
   return Math.sqrt(avgSquareDiff);
 }
 
 // Helper function to filter outliers
 function filterOutliers(lapTimes: number[]): number[] {
   if (lapTimes.length < 3) return lapTimes; // Need at least 3 samples for meaningful stats
-  
+
   const mean = lapTimes.reduce((a, b) => a + b, 0) / lapTimes.length;
   const stdDev = standardDeviation(lapTimes);
   const threshold = stdDev * OUTLIER_THRESHOLD;
-  
-  return lapTimes.filter(time => Math.abs(time - mean) <= threshold);
+
+  return lapTimes.filter((time) => Math.abs(time - mean) <= threshold);
 }
 
 export const useLapTimesStore = create<LapTimesState>((set, get) => ({
@@ -64,12 +69,20 @@ export const useLapTimesStore = create<LapTimesState>((set, get) => ({
   sessionNum: null,
   playerCarIdx: null,
   updateLapTimes: (carIdxLastLapTime, sessionNum, playerCarIdx) => {
-    const { lapTimeBuffer, sessionNum: prevSessionNum, playerCarIdx: prevPlayerCarIdx } = get();
+    const {
+      lapTimeBuffer,
+      sessionNum: prevSessionNum,
+      playerCarIdx: prevPlayerCarIdx,
+    } = get();
 
     // Auto-reset if session changed or player changed
     if (
-      (prevSessionNum !== null && sessionNum !== null && sessionNum !== prevSessionNum) ||
-      (prevPlayerCarIdx !== null && playerCarIdx !== null && playerCarIdx !== prevPlayerCarIdx)
+      (prevSessionNum !== null &&
+        sessionNum !== null &&
+        sessionNum !== prevSessionNum) ||
+      (prevPlayerCarIdx !== null &&
+        playerCarIdx !== null &&
+        playerCarIdx !== prevPlayerCarIdx)
     ) {
       console.log(`[LapTimesStore] Session/Player changed, resetting`);
       set({
@@ -89,38 +102,40 @@ export const useLapTimesStore = create<LapTimesState>((set, get) => ({
       return;
     }
 
-    const newHistory: number[][] = lapTimeBuffer?.lapTimeHistory
-      ? lapTimeBuffer.lapTimeHistory.map(arr => [...arr])
-      : carIdxLastLapTime.map(() => []);
+    // Reuse existing arrays; only clone the specific sub-array that changes
+    const newHistory: number[][] =
+      lapTimeBuffer?.lapTimeHistory ?? carIdxLastLapTime.map(() => []);
 
-    const newDeltas: number[][] = lapTimeBuffer?.lapDeltasVsPlayer
-      ? lapTimeBuffer.lapDeltasVsPlayer.map(arr => [...arr])
-      : carIdxLastLapTime.map(() => []);
+    const newDeltas: number[][] =
+      lapTimeBuffer?.lapDeltasVsPlayer ?? carIdxLastLapTime.map(() => []);
 
     let historyChanged = false;
 
-    if (lapTimeBuffer && lapTimeBuffer.lastLapTimes.length === carIdxLastLapTime.length) {
+    if (
+      lapTimeBuffer &&
+      lapTimeBuffer.lastLapTimes.length === carIdxLastLapTime.length
+    ) {
       carIdxLastLapTime.forEach((lapTime, idx) => {
         const prevLapTime = lapTimeBuffer.lastLapTimes[idx];
         // Only add to history if it's a new valid lap time
         if (lapTime > 0 && lapTime !== prevLapTime) {
-          if (!newHistory[idx]) newHistory[idx] = [];
-          newHistory[idx].push(lapTime);
-          if (newHistory[idx].length > LAP_TIME_AVG_WINDOW) newHistory[idx].shift();
+          // Clone only the changed sub-array
+          newHistory[idx] = [...(newHistory[idx] ?? []), lapTime];
+          if (newHistory[idx].length > LAP_TIME_AVG_WINDOW)
+            newHistory[idx] = newHistory[idx].slice(-LAP_TIME_AVG_WINDOW);
 
           // Calculate delta vs player's corresponding lap (if available and not the player themselves)
           if (playerCarIdx !== null && idx !== playerCarIdx) {
             const playerHistory = newHistory[playerCarIdx];
             if (playerHistory && playerHistory.length > 0) {
-              // Get the corresponding player lap time (align by index in history)
-              const playerLapIndex = playerHistory.length - 1; // Most recent player lap
+              const playerLapIndex = playerHistory.length - 1;
               const playerLapTime = playerHistory[playerLapIndex];
 
               if (playerLapTime > 0) {
-                if (!newDeltas[idx]) newDeltas[idx] = [];
                 const delta = lapTime - playerLapTime;
-                newDeltas[idx].push(delta);
-                if (newDeltas[idx].length > LAP_TIME_AVG_WINDOW) newDeltas[idx].shift();
+                newDeltas[idx] = [...(newDeltas[idx] ?? []), delta];
+                if (newDeltas[idx].length > LAP_TIME_AVG_WINDOW)
+                  newDeltas[idx] = newDeltas[idx].slice(-LAP_TIME_AVG_WINDOW);
               }
             }
           }
@@ -134,30 +149,28 @@ export const useLapTimesStore = create<LapTimesState>((set, get) => ({
         if (lapTime > 0) {
           newHistory[idx] = [lapTime];
           historyChanged = true;
-          // No deltas on first run (need at least player's first lap)
         }
       });
     }
 
-    // Calculate pace for each car by filtering outliers and using median
-    const avgLapTimes = newHistory.map(arr => {
-      if (arr.length === 0) return 0;
-      if (arr.length === 1) return arr[0];
-      
-      // Filter out outliers
-      const filteredTimes = filterOutliers(arr);
-      // Use median of filtered times for more stable pace
-      const medianValue = median(filteredTimes);
-
-      return medianValue;
-    });
+    // Only recalculate averages when history actually changed
+    const avgLapTimes = historyChanged
+      ? newHistory.map((arr) => {
+          if (arr.length === 0) return 0;
+          if (arr.length === 1) return arr[0];
+          const filteredTimes = filterOutliers(arr);
+          return median(filteredTimes);
+        })
+      : get().lapTimes;
 
     set({
       lapTimeBuffer: {
-        lastLapTimes: [...carIdxLastLapTime],
+        lastLapTimes: carIdxLastLapTime,
         lapTimeHistory: newHistory,
         lapDeltasVsPlayer: newDeltas,
-        version: historyChanged ? (lapTimeBuffer?.version ?? 0) + 1 : (lapTimeBuffer?.version ?? 0),
+        version: historyChanged
+          ? (lapTimeBuffer?.version ?? 0) + 1
+          : (lapTimeBuffer?.version ?? 0),
       },
       lapTimes: avgLapTimes,
       sessionNum,
@@ -178,7 +191,8 @@ export const useLapTimesStore = create<LapTimesState>((set, get) => ({
 /**
  * @returns An array of average lap times for each car in the session by index. Time value in seconds
  */
-export const useLapTimes = (): number[] => useStore(useLapTimesStore, (state) => state.lapTimes);
+export const useLapTimes = (): number[] =>
+  useStore(useLapTimesStore, (state) => state.lapTimes);
 
 // Stable empty array reference to prevent unnecessary re-renders
 const EMPTY_LAP_HISTORY: number[][] = [];
@@ -195,25 +209,22 @@ let lastSeenHistory: number[][] = EMPTY_LAP_HISTORY;
  * This is critical for 24hr endurance races with 60 cars and 60 FPS telemetry updates.
  */
 export const useLapTimeHistory = (): number[][] => {
-  return useStore(
-    useLapTimesStore,
-    (state: LapTimesState) => {
-      const buffer = state.lapTimeBuffer;
-      if (!buffer) return EMPTY_LAP_HISTORY;
+  return useStore(useLapTimesStore, (state: LapTimesState) => {
+    const buffer = state.lapTimeBuffer;
+    if (!buffer) return EMPTY_LAP_HISTORY;
 
-      const currentVersion = buffer.version;
+    const currentVersion = buffer.version;
 
-      // If version hasn't changed, return the cached reference
-      if (currentVersion === lastSeenVersion) {
-        return lastSeenHistory;
-      }
-
-      // Version changed, update cache
-      lastSeenVersion = currentVersion;
-      lastSeenHistory = buffer.lapTimeHistory;
-      return buffer.lapTimeHistory;
+    // If version hasn't changed, return the cached reference
+    if (currentVersion === lastSeenVersion) {
+      return lastSeenHistory;
     }
-  );
+
+    // Version changed, update cache
+    lastSeenVersion = currentVersion;
+    lastSeenHistory = buffer.lapTimeHistory;
+    return buffer.lapTimeHistory;
+  });
 };
 
 // Separate cache for deltas
@@ -231,23 +242,20 @@ let lastSeenDeltas: number[][] = EMPTY_LAP_HISTORY;
  * Performance: Uses version-based equality checking for O(1) comparison instead of deep array comparison.
  */
 export const useLapDeltasVsPlayer = (): number[][] => {
-  return useStore(
-    useLapTimesStore,
-    (state: LapTimesState) => {
-      const buffer = state.lapTimeBuffer;
-      if (!buffer) return EMPTY_LAP_HISTORY;
+  return useStore(useLapTimesStore, (state: LapTimesState) => {
+    const buffer = state.lapTimeBuffer;
+    if (!buffer) return EMPTY_LAP_HISTORY;
 
-      const currentVersion = buffer.version;
+    const currentVersion = buffer.version;
 
-      // If version hasn't changed, return the cached reference
-      if (currentVersion === lastSeenDeltasVersion) {
-        return lastSeenDeltas;
-      }
-
-      // Version changed, update cache
-      lastSeenDeltasVersion = currentVersion;
-      lastSeenDeltas = buffer.lapDeltasVsPlayer;
-      return buffer.lapDeltasVsPlayer;
+    // If version hasn't changed, return the cached reference
+    if (currentVersion === lastSeenDeltasVersion) {
+      return lastSeenDeltas;
     }
-  );
-}; 
+
+    // Version changed, update cache
+    lastSeenDeltasVersion = currentVersion;
+    lastSeenDeltas = buffer.lapDeltasVsPlayer;
+    return buffer.lapDeltasVsPlayer;
+  });
+};

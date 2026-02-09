@@ -105,6 +105,14 @@ describe('PitlaneHelper', () => {
       bridge: {} as never,
       version: '0.0.0',
       toggleDemoMode: vi.fn(),
+      containerBoundsInfo: null,
+      currentProfile: null,
+      profiles: [],
+      createProfile: vi.fn(),
+      deleteProfile: vi.fn(),
+      renameProfile: vi.fn(),
+      switchProfile: vi.fn(),
+      refreshProfiles: vi.fn(),
     });
 
     vi.mocked(usePitlaneHelperSettings).mockReturnValue(defaultConfig);
@@ -407,7 +415,9 @@ describe('PitlaneHelper', () => {
 
       const { container } = render(<PitlaneHelper />);
 
-      const speedContainer = container.querySelector('.bg-red-600.animate-pulse');
+      const speedContainer = container.querySelector(
+        '.bg-red-600.animate-pulse'
+      );
       expect(speedContainer).toBeInTheDocument();
     });
   });
@@ -447,7 +457,9 @@ describe('PitlaneHelper', () => {
       const { container, getByText } = render(<PitlaneHelper />);
 
       expect(getByText('⚠ LIMITER! (TEAM RACE)')).toBeInTheDocument();
-      const warningElement = container.querySelector('.bg-red-700.animate-pulse');
+      const warningElement = container.querySelector(
+        '.bg-red-700.animate-pulse'
+      );
       expect(warningElement).toBeInTheDocument();
     });
 

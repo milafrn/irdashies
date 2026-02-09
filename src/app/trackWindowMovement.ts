@@ -1,6 +1,11 @@
 import type { DashboardWidget } from '@irdashies/types';
 import { BrowserWindow } from 'electron';
-import { updateDashboardWidget, getDashboard } from './storage/dashboards';
+import {
+  updateDashboardWidget,
+  getDashboard,
+  getCurrentProfileId,
+} from './storage/dashboards';
+import { writeData } from './storage/storage';
 
 export const trackWindowMovement = (
   widget: DashboardWidget,
@@ -8,15 +13,15 @@ export const trackWindowMovement = (
 ) => {
   // Tracks dragged events on window and updates the widget layout
   browserWindow.on('moved', () => updateWidgetLayout(browserWindow, widget.id));
-  browserWindow.on('resized', () => updateWidgetLayout(browserWindow, widget.id));
+  browserWindow.on('resized', () =>
+    updateWidgetLayout(browserWindow, widget.id)
+  );
 };
 
-function updateWidgetLayout(
-  browserWindow: BrowserWindow,
-  widgetId: string
-) {
-  // Get current dashboard to access latest widget state
-  const dashboard = getDashboard('default');
+function updateWidgetLayout(browserWindow: BrowserWindow, widgetId: string) {
+  // Get current active profile instead of hardcoded default
+  const currentProfileId = getCurrentProfileId();
+  const dashboard = getDashboard(currentProfileId);
   if (!dashboard) return;
 
   // Find the current widget (with latest config)
@@ -38,5 +43,18 @@ function updateWidgetLayout(
     },
   };
 
-  updateDashboardWidget(updatedWidget, 'default');
+  updateDashboardWidget(updatedWidget, currentProfileId);
+}
+
+/**
+ * Track settings window position and size changes
+ */
+export const trackSettingsWindowMovement = (browserWindow: BrowserWindow) => {
+  browserWindow.on('moved', () => saveSettingsWindowBounds(browserWindow));
+  browserWindow.on('resized', () => saveSettingsWindowBounds(browserWindow));
+};
+
+function saveSettingsWindowBounds(browserWindow: BrowserWindow): void {
+  const bounds = browserWindow.getBounds();
+  writeData('settingsWindowBounds', bounds);
 }

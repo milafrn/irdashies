@@ -1,15 +1,9 @@
-import type {
-  FuelLapData,
-  IrSdkBridge,
-  Telemetry,
-  Session,
-} from '@irdashies/types';
+import type { IrSdkBridge, Telemetry, Session } from '@irdashies/types';
 import { useTelemetryStore } from './TelemetryStore';
 import { useSessionStore } from '../SessionStore/SessionStore';
 import { useLocalTelemetryStore } from './LocalTelemetryStore';
 import { useFuelStore } from '../../components/FuelCalculator/FuelStore';
 import { useEffect, useRef } from 'react';
-const DEBUG_LOGGING = false;
 import { useTeamSharing } from '../TeamSharingContext';
 import { teamSharingManager } from '../../utils/TeamSharingManager';
 
@@ -228,128 +222,6 @@ export const TelemetryProvider = ({ bridge }: TelemetryProviderProps) => {
       setupBridge(bridge);
     }
   }, [bridge, setTelemetry, setSession, setLocalTelemetry]);
-
-  // P2P Data listener
-  useEffect(() => {
-    // REMOVED mode check - always process P2P data when available
-    // if (mode === 'guest') {
-
-    // Initial sync request (just in case)
-    const timeoutId = setTimeout(() => {
-      teamSharingManager.sendToHost({ type: 'request_sync', data: {} });
-    }, 1000);
-
-    // NEW: React to connection established events
-    const unsubConnection = teamSharingManager.onPeerConnected(() => {
-      if (teamSharingManager.isLocalHost()) {
-        // As HOST: Broadcast current state to the new guest
-        const currentSession = useSessionStore.getState().session;
-        if (currentSession) {
-          teamSharingManager.broadcast({
-            type: 'session',
-            data: currentSession,
-          });
-        }
-        const history = useFuelStore.getState().getLapHistory();
-        if (history.length > 0) {
-          teamSharingManager.broadcast({ type: 'fuel_history', data: history });
-        }
-      } else if (teamSharingManager.getMode() === 'guest') {
-        // As GUEST: Request sync immediately
-        teamSharingManager.sendToHost({ type: 'request_sync', data: {} });
-      }
-    });
-
-    const unsubP2P = teamSharingManager.onData((msg) => {
-      // Helper to wrap P2P data into iRacing SDK format
-      const wrapP2PData = (
-        data: Record<string, unknown>
-      ): Partial<Telemetry> => {
-        const wrapped: Record<string, unknown> = {};
-        if (!data) return {};
-
-        Object.entries(data).forEach(([key, value]) => {
-          if (typeof value === 'number' || typeof value === 'boolean') {
-            wrapped[key] = { value: [value] };
-          } else if (Array.isArray(value)) {
-            wrapped[key] = { value };
-          } else if (
-            typeof value === 'object' &&
-            value !== null &&
-            'value' in value
-          ) {
-            wrapped[key] = value;
-          } else {
-            // Fallback for strings/other
-            // wrapped[key] = { value: [value] };
-          }
-        });
-        return wrapped as Partial<Telemetry>;
-      };
-
-      if (msg.type === 'telemetry') {
-        const incomingData = msg.data as Record<string, unknown>;
-
-        // NORMALIZE SESSION LAPS (Guest Fix)
-        if (incomingData.SessionLaps === undefined) {
-          const altTotal =
-            incomingData.SessionLapsTotal || incomingData.SessionTotalLaps;
-          if (altTotal !== undefined) {
-            incomingData.SessionLaps = altTotal;
-          }
-        }
-
-        // WRAP DATA FOR STORE (Critical Fix)
-        const wrappedData = wrapP2PData(incomingData);
-
-        // Apply to ZUSTAND Store (Critical for FuelCalculator)
-        useTelemetryStore.getState().updateTelemetry(wrappedData);
-
-        // REMOVED: setTelemetry(wrappedData as Telemetry); // This was overwriting the whole state!
-
-        if (DEBUG_LOGGING) {
-          // Use flag for Guest verification
-        }
-      } else if (msg.type === 'request_sync') {
-        if (teamSharingManager.isLocalHost()) {
-          const session = useSessionStore.getState().session;
-          if (session)
-            teamSharingManager.broadcast({ type: 'session', data: session });
-
-          const history = useFuelStore.getState().getLapHistory();
-          if (history && history.length > 0) {
-            teamSharingManager.broadcast({
-              type: 'fuel_history',
-              data: history,
-            });
-          }
-        }
-      } else if (msg.type === 'session') {
-        const session = msg.data as Session;
-        setSession(session);
-
-        // CRITICAL: Update local telemetry for guest too!
-        // Many hooks use sessionId or playerCarIdx to filter results.
-        setLocalTelemetry({
-          sessionId: session.WeekendInfo?.SessionID,
-          playerCarIdx: session.DriverInfo?.DriverCarIdx,
-          teamId: session.DriverInfo?.Drivers?.find(
-            (d) => d.CarIdx === session.DriverInfo?.DriverCarIdx
-          )?.TeamID,
-          isTeamRacing: !!session.WeekendInfo?.TeamRacing,
-        });
-      } else if (msg.type === 'fuel_history') {
-        useFuelStore.getState().setLapHistory(msg.data as FuelLapData[]);
-      }
-    });
-
-    return () => {
-      clearTimeout(timeoutId);
-      unsubConnection();
-      unsubP2P();
-    };
-    // }
-  }, [mode, setTelemetry, setSession, setLocalTelemetry]);
 
   return <></>;
 };

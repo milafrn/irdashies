@@ -25,7 +25,7 @@ export const useCarSpeedsStore = create<CarSpeedsState>((set, get) => ({
   updateCarSpeeds: (telemetry, trackLength) => {
     const { carSpeedBuffer, lastSpeedUpdate } = get();
     const sessionTime = telemetry?.SessionTime?.value?.[0] ?? 0;
-    
+
     // Check if enough simulation time has passed since last update
     if (sessionTime - lastSpeedUpdate < SPEED_UPDATE_INTERVAL) {
       return;
@@ -36,9 +36,9 @@ export const useCarSpeedsStore = create<CarSpeedsState>((set, get) => ({
       set({ carSpeeds: carIdxLapDistPct.map(() => 0) });
       return;
     }
-    const newHistory: number[][] = carSpeedBuffer?.speedHistory
-      ? carSpeedBuffer.speedHistory.map(arr => [...arr])
-      : carIdxLapDistPct.map(() => []);
+    // Reuse existing arrays; mutate in-place since the store owns them
+    const newHistory: number[][] =
+      carSpeedBuffer?.speedHistory ?? carIdxLapDistPct.map(() => []);
     if (
       carSpeedBuffer &&
       carSpeedBuffer.lastLapDistPct.length === carIdxLapDistPct.length &&
@@ -57,10 +57,12 @@ export const useCarSpeedsStore = create<CarSpeedsState>((set, get) => ({
       });
     }
     // Calculate moving average for each car
-    const avgSpeeds = newHistory.map(arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
+    const avgSpeeds = newHistory.map((arr) =>
+      arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0
+    );
     set({
       carSpeedBuffer: {
-        lastLapDistPct: [...carIdxLapDistPct],
+        lastLapDistPct: carIdxLapDistPct,
         lastSessionTime: sessionTime,
         speedHistory: newHistory,
       },
@@ -77,4 +79,5 @@ export const useCarSpeedsStore = create<CarSpeedsState>((set, get) => ({
   },
 }));
 
-export const useCarSpeeds = (): number[] => useStore(useCarSpeedsStore, (state) => state.carSpeeds); 
+export const useCarSpeeds = (): number[] =>
+  useStore(useCarSpeedsStore, (state) => state.carSpeeds);

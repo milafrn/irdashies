@@ -173,14 +173,19 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
 
   const isOnTrack = useTelemetryValue('IsOnTrack');
 
+  // const sessionId = useTelemetryValue('SessionUniqueID');
+
   // We need to force a re-render periodically or subscribe to data?
   // `useTelemetryValues` subscribes to the store.
   // `useFuelCalculation` subscribes to the store.
   // So components should update automatically.
 
   // HACK: To ensure updates even if only low-freq data changes
+  // we might want to subscribe to a clock or sessionTime?
+  // REMOVED: const sessionTime = useTelemetryValue('SessionTime');
 
   // useFuelCalculation returns the calculation object.
+  // Updated hook signature to match what we see in HEAD (passing object)
   const baseCalculation = useFuelCalculation({
     ...settings,
     ...props,
@@ -192,20 +197,14 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
     ? (DEMO_DATA as FuelCalculation)
     : baseCalculation || EMPTY_DATA;
 
-  // BUT `useFuelCalculation` already provides the computed state.
-
-  // For the GRID, we want to show PREDICTIVE vs ACTUAL vs REQUIRED
-  // `fuelData` has `fuelToFinish`, `fuelToAdd`, etc.
-
   // Laps Remaining from Telemetry vs Calculated
   // Telemetry: FuelLevel / FuelUsePerHour? No iRacing gives FuelLevelPct.
   // We rely on our calculation.
 
-  // const currentFuelLevel = useTelemetryValue('FuelLevel');
+  const currentFuelLevel = useTelemetryValue('FuelLevel');
 
   // Pit Window
   // If we have `fuelData.pitWindowOpen` (lap number), we can show it.
-
   // Predictive Usage (for the grid)
   // `fuelData.avgLaps` is the average consumption.
   // We might want `fuelData.lastLapUsage` for comparison.
@@ -303,6 +302,11 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
         const fuelChanged =
           prev && Math.abs(prev.fuelLevel - fuelData.fuelLevel) > 0.05;
 
+        // Update snapshot if:
+        // 1. We don't have a previous snapshot
+        // 2. We are in guest mode and fuel changed
+        // 3. The current lap has changed
+        // 4. The last finished lap count has changed (crucial for catching the update after crossing the line)
         if (
           !prev ||
           (mode === 'guest' && fuelChanged) ||
@@ -315,7 +319,6 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
       });
     }
   }, [fuelData, mode]);
-
   // Force update every second for time-based items (like clock) if needed?
   // Not needed if we use `sessionTime`.
 
@@ -327,18 +330,9 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
 
   // --- Widget Renderer ---
   // Recursive function to build the grid
-
   // We need to manage the "Blinking" state for the border.
   // We can do this with CSS animation or React state.
   // Let's use CSS transitions based on `fuelStatus`.
-
-  // Add timeout to force re-render if connection is lost?
-  // No, `useTelemetryvalues` handles that.
-
-  // Add simple "Heartbeat" to ensure smooth gauge updates?
-  // The gauge animates via CSS/SVG transitions.
-
-  // The gauge animates via CSS/SVG transitions.
 
   // Frozen Display Data (for Grid)
   const frozenDisplayData = useMemo(() => {
@@ -370,17 +364,23 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
   // For DOM, React updates are sufficient.
   const [, setTick] = useState(0);
 
-  // HACK: Sometimes `fuelData` is stale if no telemetry update.
-  // Consolidate UI periodic refresh (10Hz) to handle blinking and smooth transitions
-  // only when on track or in session.
+  // HACK: Re-implement the blinking/updates properly
   useEffect(() => {
     if (!isOnTrack && !editMode) return;
 
-    const intervalId = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 100);
+    let timeoutId: NodeJS.Timeout;
 
-    return () => clearInterval(intervalId);
+    const scheduleNextUpdate = () => {
+      timeoutId = setTimeout(() => {
+        setTick((t) => t + 1);
+        scheduleNextUpdate();
+      }, 100);
+    };
+
+    // Start the cycle
+    scheduleNextUpdate();
+
+    return () => clearTimeout(timeoutId);
   }, [isOnTrack, editMode]);
 
   // Safety fallback
@@ -420,6 +420,7 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
             {...widgetProps}
             fuelData={frozenFuelData}
             liveFuelData={fuelData}
+            liveFuelLevel={currentFuelLevel}
             predictiveUsage={predictiveUsage}
             displayData={frozenDisplayData}
           />
@@ -528,7 +529,6 @@ export const FuelCalculator = (props: FuelCalculatorProps) => {
     fontFamily:
       "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   };
-
   return (
     <div
       className="relative w-full h-full overflow-hidden"

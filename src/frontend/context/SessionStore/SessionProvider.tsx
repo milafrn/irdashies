@@ -18,7 +18,10 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
 
   useEffect(() => {
     const setupBridge = (b: IrSdkBridge) => {
-      b.onSessionData((session) => {
+      // Store unsubs for cleanup
+      const unsubs: (() => void)[] = [];
+
+      const unsubSession = b.onSessionData((session) => {
         // Update local store with critical session info
         const playerCarIdx = session.DriverInfo?.DriverCarIdx;
         const playerDriver = session.DriverInfo?.Drivers?.find(
@@ -40,6 +43,14 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
           }
         }
       });
+      if (unsubSession) {
+        unsubs.push(unsubSession);
+      }
+
+      return () => {
+        unsubs.forEach((u) => u());
+        b.stop();
+      };
     };
 
     if (mode === 'guest') {
@@ -50,6 +61,8 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
         }
       });
 
+      // Still connect to bridge for local ID/SessionID if possible, usually not needed for guest
+      // But keeping it consistent with HEAD logic which initialized it
       if (bridge instanceof Promise) {
         bridge.then((b) => setupBridge(b));
       } else {
@@ -61,16 +74,18 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
       };
     }
 
+    let cleanupFn: (() => void) | undefined;
+
     if (bridge instanceof Promise) {
-      bridge.then(setupBridge);
-      return () => {
-        // No-op: global bridge managed at app level
-      };
+      bridge.then((b) => {
+        cleanupFn = setupBridge(b);
+      });
+    } else {
+      cleanupFn = setupBridge(bridge);
     }
 
-    setupBridge(bridge);
     return () => {
-      // No-op: global bridge managed at app level
+      if (cleanupFn) cleanupFn();
     };
   }, [bridge, mode, setSession, setLocalTelemetry]);
 

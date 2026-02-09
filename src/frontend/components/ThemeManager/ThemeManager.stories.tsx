@@ -3,7 +3,12 @@ import { ThemeManager } from './ThemeManager';
 import { TelemetryDecorator } from '@irdashies/storybook';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DashboardProvider } from '@irdashies/context';
-import type { DashboardBridge, DashboardLayout, FontSize, GeneralSettingsType } from '@irdashies/types';
+import type {
+  DashboardBridge,
+  DashboardLayout,
+  FontSize,
+  GeneralSettingsType,
+} from '@irdashies/types';
 import { useState } from 'react';
 import { WIDGET_MAP } from '../../WidgetIndex';
 import { defaultDashboard } from '../../../app/storage/defaultDashboard';
@@ -34,10 +39,13 @@ const createMockBridge = (
     setFontWeight(dashboard.generalSettings?.fontWeight || 'normal');
   },
   dashboardUpdated: (callback) => {
-    callback({
-      widgets,
-      generalSettings: { fontSize, colorPalette, fontWeight },
-    });
+    callback(
+      {
+        widgets,
+        generalSettings: { fontSize, colorPalette },
+      },
+      undefined
+    );
     return () => {
       return;
     };
@@ -74,7 +82,36 @@ const createMockBridge = (
   },
   saveGarageCoverImage: () => Promise.resolve(''),
   getGarageCoverImageAsDataUrl: () => Promise.resolve(null),
-  setAutoStart: () => Promise.resolve()
+  // Profile management mocks
+  listProfiles: () =>
+    Promise.resolve([
+      {
+        id: 'default',
+        name: 'Default',
+        createdAt: new Date().toISOString(),
+        lastModified: new Date().toISOString(),
+      },
+    ]),
+  createProfile: (name: string) =>
+    Promise.resolve({
+      id: 'mock-id',
+      name,
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }),
+  deleteProfile: () => Promise.resolve(),
+  renameProfile: () => Promise.resolve(),
+  switchProfile: () => Promise.resolve(),
+  getCurrentProfile: () =>
+    Promise.resolve({
+      id: 'default',
+      name: 'Default',
+      createdAt: new Date().toISOString(),
+      lastModified: new Date().toISOString(),
+    }),
+  updateProfileTheme: async () => undefined,
+  getDashboardForProfile: async () => null,
+  setAutoStart: () => Promise.resolve(),
 });
 
 const FONT_SIZES: FontSize[] = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl'];
@@ -87,7 +124,11 @@ const FONT_SIZE_LABELS: Record<FontSize, string> = {
   '2xl': '2X Large',
   '3xl': '3X Large',
 };
-const FONT_WEIGHTS: NonNullable<GeneralSettingsType['fontWeight']>[] = ['normal', 'bold', 'extrabold'];
+const FONT_WEIGHTS: NonNullable<GeneralSettingsType['fontWeight']>[] = [
+  'normal',
+  'bold',
+  'extrabold',
+];
 
 const COLOR_PALETTES: NonNullable<GeneralSettingsType['colorPalette']>[] = [
   'default',
@@ -154,14 +195,21 @@ const createThemeControls = (
 
       {/* Color Palette */}
       <div className="flex items-center gap-2">
-        <label htmlFor="colorPalette" className="text-[12px]">Color Palette:</label>
+        <label htmlFor="colorPalette" className="text-[12px]">
+          Color Palette:
+        </label>
         <select
           id="colorPalette"
           value={colorPalette}
           onChange={(e) =>
             mockBridge.saveDashboard({
               widgets: [],
-              generalSettings: { fontSize, colorPalette: e.target.value as GeneralSettingsType['colorPalette'], fontWeight },
+              generalSettings: {
+                fontSize,
+                colorPalette: e.target
+                  .value as GeneralSettingsType['colorPalette'],
+                fontWeight,
+              },
             })
           }
           className="px-2 py-1 rounded border text-[12px]"
@@ -176,16 +224,23 @@ const createThemeControls = (
 
       {/* Font Weight */}
       <div className="flex items-center gap-2">
-        <label htmlFor="fontWeight" className="text-[12px]">Font Weight:</label>
+        <label htmlFor="fontWeight" className="text-[12px]">
+          Font Weight:
+        </label>
         <select
           id="fontWeight"
           value={fontWeight}
           onChange={(e) => {
-            const newWeight = e.target.value as GeneralSettingsType['fontWeight'];
+            const newWeight = e.target
+              .value as GeneralSettingsType['fontWeight'];
             setFontWeight(newWeight);
             mockBridge.saveDashboard({
               widgets: [],
-              generalSettings: { fontSize, colorPalette, fontWeight: newWeight },
+              generalSettings: {
+                fontSize,
+                colorPalette,
+                fontWeight: newWeight,
+              },
             });
           }}
           className="px-2 py-1 rounded border text-[12px]"
@@ -200,7 +255,6 @@ const createThemeControls = (
     </div>
   );
 };
-
 
 export const Primary = {
   render: () => (
@@ -231,11 +285,21 @@ export const Primary = {
 
                 {/* ExtraBold text */}
                 <div className="space-y-2">
-                  <div className="text-xs font-extrabold">text-xs extrabold</div>
-                  <div className="text-sm font-extrabold">text-sm extrabold</div>
-                  <div className="text-base font-extrabold">text-base extrabold</div>
-                  <div className="text-lg font-extrabold">text-lg extrabold</div>
-                  <div className="text-xl font-extrabold">text-xl extrabold</div>
+                  <div className="text-xs font-extrabold">
+                    text-xs extrabold
+                  </div>
+                  <div className="text-sm font-extrabold">
+                    text-sm extrabold
+                  </div>
+                  <div className="text-base font-extrabold">
+                    text-base extrabold
+                  </div>
+                  <div className="text-lg font-extrabold">
+                    text-lg extrabold
+                  </div>
+                  <div className="text-xl font-extrabold">
+                    text-xl extrabold
+                  </div>
                 </div>
               </div>
             }
@@ -249,22 +313,47 @@ export const Primary = {
 export const WithFontSizeControls = {
   render: () => {
     const [fontSize, setFontSize] = useState<FontSize | undefined>('sm');
-    const [colorPalette, setColorPalette] = useState<GeneralSettingsType['colorPalette']>('default');
-    const [fontWeight, setFontWeight] = useState<GeneralSettingsType['fontWeight']>('normal');
-    const mockBridge = createMockBridge(fontSize, setFontSize, fontWeight, setFontWeight, colorPalette, setColorPalette);
+    const [colorPalette, setColorPalette] =
+      useState<GeneralSettingsType['colorPalette']>('default');
+    const [fontWeight, setFontWeight] =
+      useState<GeneralSettingsType['fontWeight']>('normal');
+    const mockBridge = createMockBridge(
+      fontSize,
+      setFontSize,
+      fontWeight,
+      setFontWeight,
+      colorPalette,
+      setColorPalette
+    );
 
     return (
       <DashboardProvider bridge={mockBridge}>
         <MemoryRouter initialEntries={['/']}>
           <ThemeManager>
             <div className="p-4 space-y-4">
-              {createThemeControls(fontSize, colorPalette, fontWeight, setFontWeight, mockBridge)}
+              {createThemeControls(
+                fontSize,
+                colorPalette,
+                fontWeight,
+                setFontWeight,
+                mockBridge
+              )}
               <div className="space-y-2 bg-slate-800/25 rounded-sm p-2">
-                <div className={`text-xs ${fontWeight}`}>This is extra small text</div>
-                <div className={`text-sm ${fontWeight}`}>This is small text</div>
-                <div className={`text-base ${fontWeight}`}>This is base text</div>
-                <div className={`text-lg ${fontWeight}`}>This is large text</div>
-                <div className={`text-xl ${fontWeight}`}>This is extra large text</div>
+                <div className={`text-xs ${fontWeight}`}>
+                  This is extra small text
+                </div>
+                <div className={`text-sm ${fontWeight}`}>
+                  This is small text
+                </div>
+                <div className={`text-base ${fontWeight}`}>
+                  This is base text
+                </div>
+                <div className={`text-lg ${fontWeight}`}>
+                  This is large text
+                </div>
+                <div className={`text-xl ${fontWeight}`}>
+                  This is extra large text
+                </div>
               </div>
             </div>
           </ThemeManager>
@@ -277,16 +366,32 @@ export const WithFontSizeControls = {
 export const WithAllAvailableWidgets = {
   render: () => {
     const [fontSize, setFontSize] = useState<FontSize | undefined>('sm');
-    const [colorPalette, setColorPalette] = useState<GeneralSettingsType['colorPalette']>('default');
-    const [fontWeight, setFontWeight] = useState<GeneralSettingsType['fontWeight']>('normal');
-    const mockBridge = createMockBridge(fontSize, setFontSize, fontWeight, setFontWeight, colorPalette, setColorPalette, defaultDashboard.widgets);
+    const [colorPalette, setColorPalette] =
+      useState<GeneralSettingsType['colorPalette']>('default');
+    const [fontWeight, setFontWeight] =
+      useState<GeneralSettingsType['fontWeight']>('normal');
+    const mockBridge = createMockBridge(
+      fontSize,
+      setFontSize,
+      fontWeight,
+      setFontWeight,
+      colorPalette,
+      setColorPalette,
+      defaultDashboard.widgets
+    );
 
     return (
       <DashboardProvider bridge={mockBridge}>
         <MemoryRouter initialEntries={['/']}>
           <ThemeManager>
             <div className="p-4 space-y-4">
-              {createThemeControls(fontSize, colorPalette, fontWeight, setFontWeight, mockBridge)}
+              {createThemeControls(
+                fontSize,
+                colorPalette,
+                fontWeight,
+                setFontWeight,
+                mockBridge
+              )}
             </div>
             <hr className="my-4" />
             <Routes>
@@ -296,7 +401,9 @@ export const WithAllAvailableWidgets = {
                   <div>
                     {Object.entries(WIDGET_MAP).map(([key, Widget]) => (
                       <div key={key}>
-                        <h2 className="text-md font-bold m-2 uppercase">{key}</h2>
+                        <h2 className="text-md font-bold m-2 uppercase">
+                          {key}
+                        </h2>
                         <div className="min-h-24 pb-12">
                           <Widget />
                         </div>

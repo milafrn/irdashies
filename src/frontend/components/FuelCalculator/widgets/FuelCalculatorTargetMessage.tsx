@@ -33,7 +33,6 @@ export const FuelCalculatorTargetMessage: React.FC<
     sessionType === 'Offline Testing' || sessionType === 'Practice';
 
   if (!settings?.enableTargetPitLap || !settings.targetPitLap) return null;
-  // REMOVED: !fuelData check
 
   const targetLap = settings.targetPitLap;
   const lapsLeftAfterPit = Math.max(0, (fuelData?.totalLaps ?? 0) - targetLap);

@@ -39,8 +39,6 @@ export const FuelCalculatorTimeEmpty: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '24px';
 
-  // REMOVED: if (!fuelData) return null;
-
   // Calculate time until empty
   // lapsWithFuel * avgLapTime
   const secondsLeft = displayData.lapsWithFuel * (fuelData?.avgLapTime || 0);

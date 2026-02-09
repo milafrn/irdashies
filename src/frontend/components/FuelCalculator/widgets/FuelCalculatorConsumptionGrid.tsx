@@ -27,6 +27,7 @@ interface FuelCalculatorWidgetProps {
 export const FuelCalculatorConsumptionGrid: React.FC<
   FuelCalculatorWidgetProps
 > = ({
+  fuelData,
   displayData,
   settings,
   widgetId,
@@ -94,7 +95,6 @@ export const FuelCalculatorConsumptionGrid: React.FC<
   if (isFinalLapOrFinished) {
     effectiveTotalLaps = currentLap;
   }
-
   // Grid Data (Frozen Values from Parent)
   const avg = displayData?.avgLaps || displayData?.avg10Laps || 0;
   const max = displayData?.maxLapUsage || 0;
@@ -239,7 +239,7 @@ export const FuelCalculatorConsumptionGrid: React.FC<
     liveLapsRemaining,
     dataLiveFuelLevel
   );
-  // REMOVED: if (!fuelData) return null;
+  if (!fuelData) return null;
 
   // Master visibility toggle
   if (settings && settings.showConsumption === false) return null;
@@ -261,7 +261,6 @@ export const FuelCalculatorConsumptionGrid: React.FC<
     isValid ? num.toFixed(2) : '--';
 
   // Helper for Refuel color
-
   return (
     <div
       style={containerStyle}
@@ -553,6 +552,7 @@ export const FuelCalculatorConsumptionGrid: React.FC<
                       '--'
                     )}
                   </div>
+
                   <div
                     className={`text-white text-center ${rowPadding}`}
                     style={{ fontSize: valueFontSize }}

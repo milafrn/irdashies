@@ -79,8 +79,6 @@ export const FuelCalculatorGauge: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '18px';
 
-  // REMOVED: if (!fuelData) return null;
-
   const currentFuel = displayData.fuelLevel;
   const tankCapacity = fuelData?.fuelTankCapacity ?? 60;
   const fuelPct = Math.min(

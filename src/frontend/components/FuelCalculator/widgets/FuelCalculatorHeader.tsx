@@ -69,8 +69,6 @@ export const FuelCalculatorHeader: React.FC<FuelCalculatorWidgetProps> = ({
       ? `${widgetStyle.fontSize}px`
       : '14px';
 
-  // REMOVED: if (!fuelData) return null;
-
   const stopsRemaining = fuelData?.stopsRemaining ?? 0;
   const pitWindowOpen = fuelData?.pitWindowOpen;
 

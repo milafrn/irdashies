@@ -1,21 +1,28 @@
 import { Decorator } from '@storybook/react-vite';
-import { DashboardProvider, SessionProvider, TelemetryProvider } from '@irdashies/context';
+import {
+  DashboardProvider,
+  SessionProvider,
+  TelemetryProvider,
+} from '@irdashies/context';
 import { generateMockDataFromPath } from '../src/app/bridge/iracingSdk/mock-data/generateMockData';
 import { mockDashboardBridge } from './mockDashboardBridge';
 import type { DashboardBridge, DashboardLayout } from '@irdashies/types';
 import { defaultDashboard } from '../src/app/storage/defaultDashboard';
 import type { ComponentType } from 'react';
 
-// eslint-disable-next-line react/display-name
-export const TelemetryDecorator: (path?: string) => Decorator = (path) => (Story) => (
-  <>
-    <SessionProvider bridge={generateMockDataFromPath(path)} />
-    <TelemetryProvider bridge={generateMockDataFromPath(path)} />
-    <DashboardProvider bridge={mockDashboardBridge}>
-      <Story />
-    </DashboardProvider>
-  </>
-);
+export const TelemetryDecorator: (path?: string) => Decorator = (path) => {
+  const TelemetryDecoratorComponent = (Story: ComponentType) => (
+    <>
+      <SessionProvider bridge={generateMockDataFromPath(path)} />
+      <TelemetryProvider bridge={generateMockDataFromPath(path)} />
+      <DashboardProvider bridge={mockDashboardBridge}>
+        <Story />
+      </DashboardProvider>
+    </>
+  );
+  TelemetryDecoratorComponent.displayName = 'TelemetryDecorator';
+  return TelemetryDecoratorComponent;
+};
 
 export const createMockBridgeWithConfig = (
   widgetConfigOverrides: Record<string, Record<string, unknown>>
@@ -41,7 +48,7 @@ export const createMockBridgeWithConfig = (
     ...mockDashboardBridge,
     resetDashboard: async () => modifiedDashboard,
     dashboardUpdated: (callback) => {
-      callback(modifiedDashboard);
+      callback(modifiedDashboard, undefined);
       return () => {
         // No-op cleanup function
       };

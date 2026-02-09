@@ -36,9 +36,10 @@ export const RunningStateProvider = ({
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
-    bridge.onRunningState((isRunning) => setRunning(isRunning));
+    const unsub = bridge.onRunningState((isRunning) => setRunning(isRunning));
     return () => {
-      // No-op: global bridge managed at app level
+      if (unsub) unsub();
+      bridge.stop();
     };
   }, [bridge]);
 
