@@ -20,7 +20,7 @@ import {
 } from './FuelStore';
 import { FuelLapData } from '@irdashies/types';
 import type { FuelCalculation, FuelCalculatorSettings } from './types';
-import { TeamSharingMode } from '../../utils/TeamSharingManager';
+import { TeamSharingMode } from '../../services/TeamSharing/types';
 import { useFuelLogger } from './useFuelLogger';
 import {
   validateLapData,

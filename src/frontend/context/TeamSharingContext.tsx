@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  teamSharingManager,
-  TeamSharingMode,
-} from '../utils/TeamSharingManager';
+import { teamSharingService } from '../services/TeamSharing/TeamSharingService';
+import { TeamSharingMode } from '../services/TeamSharing/types';
 
 interface TeamSharingContextType {
   mode: TeamSharingMode;
@@ -29,13 +27,13 @@ export const TeamSharingProvider: React.FC<{ children: React.ReactNode }> = ({
   const lastUpdateRef = React.useRef<number>(0);
 
   useEffect(() => {
-    const unsub = teamSharingManager.onStatusChange((newMode, id) => {
+    const unsub = teamSharingService.onStatusChange((newMode, id) => {
       // console.log('[TeamSharingContext] Mode changed to:', newMode, 'ID:', id);
       setMode(newMode);
       setPeerId(id);
     });
 
-    const unsubData = teamSharingManager.onData(() => {
+    const unsubData = teamSharingService.onData(() => {
       const now = Date.now();
       // Throttle UI updates for 'last data' timer to 1Hz
       if (now - lastUpdateRef.current >= 1000) {
@@ -56,9 +54,9 @@ export const TeamSharingProvider: React.FC<{ children: React.ReactNode }> = ({
         mode,
         peerId,
         lastDataReceived,
-        startHosting: (id) => teamSharingManager.startHosting(id),
-        joinSession: (id) => teamSharingManager.joinSession(id),
-        stop: () => teamSharingManager.stop(),
+        startHosting: (id) => teamSharingService.startHosting(id),
+        joinSession: (id) => teamSharingService.joinSession(id),
+        stop: () => teamSharingService.stop(),
       }}
     >
       {children}

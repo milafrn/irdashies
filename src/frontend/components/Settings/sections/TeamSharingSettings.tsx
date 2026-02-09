@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTeamSharing } from '../../../context/TeamSharingContext';
-import { teamSharingManager } from '../../../utils/TeamSharingManager';
+import { teamSharingService } from '../../../services/TeamSharing/TeamSharingService';
 import { useFuelStore } from '../../FuelCalculator/FuelStore';
 import { useAutoTeamSync } from '../../../hooks/useAutoTeamSync';
 import { useLocalIsTeamRacing } from '../../../context/TelemetryStore/LocalTelemetryStore';
@@ -46,7 +46,10 @@ export const TeamSharingSettings: React.FC = () => {
   const handleSyncHistory = () => {
     if (mode === 'host') {
       const history = getLapHistory();
-      teamSharingManager.broadcast({ type: 'fuel_history', data: history });
+      teamSharingService.broadcastManual({
+        type: 'fuel_history',
+        data: history,
+      });
     }
   };
 
@@ -315,7 +318,7 @@ const P2PDebugTerminal: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
     let lastTelemetryLog = 0;
 
-    const unsubData = teamSharingManager.onData((msg) => {
+    const unsubData = teamSharingService.onData((msg) => {
       // Throttle telemetry logs to avoid UI freeze (1 log per second)
       if (msg.type === 'telemetry') {
         const now = Date.now();
@@ -359,7 +362,7 @@ const P2PDebugTerminal: React.FC<{ isVisible: boolean }> = ({ isVisible }) => {
 
     // We can't easily hook into "onPeerConnected" here without exposing it publicly in a way that allows multiple listeners safely,
     // but we can listen to status changes.
-    const unsubStatus = teamSharingManager.onStatusChange((mode, id) => {
+    const unsubStatus = teamSharingService.onStatusChange((mode, id) => {
       addLog(`Status: ${mode} ${id ? `(${id})` : ''}`);
     });
 

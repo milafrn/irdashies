@@ -3,7 +3,8 @@ import { useSessionStore } from './SessionStore';
 import { useLocalTelemetryStore } from '../TelemetryStore/LocalTelemetryStore';
 import { useEffect } from 'react';
 import { useTeamSharing } from '../TeamSharingContext';
-import { teamSharingManager } from '../../utils/TeamSharingManager';
+import { teamSharingService } from '../../services/TeamSharing/TeamSharingService';
+import { TeamSharingMessage } from '../../services/TeamSharing/types';
 
 export interface SessionProviderProps {
   bridge: IrSdkBridge | Promise<IrSdkBridge>;
@@ -38,8 +39,11 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
         // Update global store ONLY IF we are not a guest
         if (mode !== 'guest') {
           setSession(session);
-          if (teamSharingManager.getMode() === 'host') {
-            teamSharingManager.broadcast({ type: 'session', data: session });
+          if (teamSharingService.getMode() === 'host') {
+            teamSharingService.broadcastManual({
+              type: 'session',
+              data: session,
+            });
           }
         }
       });
@@ -54,7 +58,7 @@ export const SessionProvider = ({ bridge }: SessionProviderProps) => {
     };
 
     if (mode === 'guest') {
-      const unsub = teamSharingManager.onData((msg) => {
+      const unsub = teamSharingService.onData((msg: TeamSharingMessage) => {
         if (msg.type === 'session') {
           console.log('📡 SessionProvider: Received P2P Session Data');
           setSession(msg.data as Session);
