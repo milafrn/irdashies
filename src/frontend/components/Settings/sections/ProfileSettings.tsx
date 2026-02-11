@@ -14,8 +14,7 @@ export const ProfileSettings = () => {
     deleteProfile,
     renameProfile,
     switchProfile,
-    refreshProfiles,
-    bridge,
+    refreshProfiles
   } = useDashboard();
 
   const [newProfileName, setNewProfileName] = useState('');
@@ -30,6 +29,19 @@ export const ProfileSettings = () => {
     profileName: string;
   }>({ isOpen: false, profileId: '', profileName: '' });
 
+  useEffect(() => {
+    refreshProfiles();
+    // Fetch server IP
+    fetch('http://localhost:3000/api/server-ip')
+      .then((res) => res.json())
+      .catch(() => ({ ip: 'localhost' }))
+      .then((data) => {
+        if (data.ip) {
+          setServerIP(data.ip);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) {
