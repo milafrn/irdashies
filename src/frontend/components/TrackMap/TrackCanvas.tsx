@@ -335,9 +335,9 @@ export const TrackCanvas = ({
         const offsetX = (canvasSize.width - TRACK_DRAWING_WIDTH * scale) / 2;
         const offsetY = (canvasSize.height - TRACK_DRAWING_HEIGHT * scale) / 2;
 
-        const dpr = window.devicePixelRatio || 1;
+        //const dpr = window.devicePixelRatio || 1;
         cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
-        cacheCtx.scale(dpr, dpr);
+        //cacheCtx.scale(dpr, dpr);
 
         setupCanvasContext(cacheCtx, scale, offsetX, offsetY);
         drawTrack(
